@@ -30,6 +30,18 @@ The add-on exposes:
 - `8556/udp` for WebRTC ICE media
 - `8080/tcp` through Home Assistant ingress for the browser/WebRTC signaling page
 
+## Door Station SIP Configuration
+
+Configure the SIP account on the door station to register to this add-on:
+
+- SIP server/proxy/registrar: the `local_address` value from the add-on configuration, for example `192.168.0.123`
+- SIP port: `5060`
+- Username/auth ID: `sip_username`
+- Password: `sip_password`
+- Realm/domain: `sip_realm`
+
+For the default add-on options, configure the door station with username `door`, password `door`, and realm `sip.local`.
+
 Ingress proxies HTTP/WebSocket signaling only. WebRTC media still uses ICE-selected UDP paths or TURN relay.
 Home Assistant add-on port mappings do not support RTP port ranges, so this add-on uses a single RTP port for the current single-call design.
 
