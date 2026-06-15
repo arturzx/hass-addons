@@ -53,4 +53,14 @@ def check_required_elements(required: list[str] | None = None) -> GStreamerCheck
 
     Gst.init(None)
     missing = [name for name in required if Gst.ElementFactory.find(name) is None]
-    return GStreamerCheckResult(not missing, missing)
+    if missing:
+        return GStreamerCheckResult(False, missing)
+
+    registry = Gst.Registry.get()
+    if registry.find_plugin("nice") is None:
+        return GStreamerCheckResult(
+            False,
+            ["webrtcbin", "nicesrc", "nicesink"],
+            "GStreamer libnice plugin is not registered; install/enable libnice-gstreamer",
+        )
+    return GStreamerCheckResult(True, [])

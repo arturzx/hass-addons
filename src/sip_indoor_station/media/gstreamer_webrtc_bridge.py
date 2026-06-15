@@ -111,7 +111,6 @@ class GStreamerWebRtcBridge(MediaSession):
         self.webrtc = self.pipeline.get_by_name("webrtc")
         if self.webrtc is None:
             raise RuntimeError("GStreamer pipeline did not create webrtcbin named 'webrtc'")
-        self.configure_ice_udp_port()
         if self.stun_servers:
             self.webrtc.set_property("stun-server", self.stun_servers[0])
             if len(self.stun_servers) > 1:
@@ -142,6 +141,7 @@ class GStreamerWebRtcBridge(MediaSession):
         result = self.pipeline.set_state(self._gst.State.READY)
         if result == self._gst.StateChangeReturn.FAILURE:
             raise RuntimeError("failed to set GStreamer WebRTC bridge pipeline to READY")
+        self.configure_ice_udp_port()
         self._prepared = True
         LOGGER.info(
             "media_prepared call_id=%s advertised_rtp=%s:%s bind_rtp=%s:%s remote_rtp=%s:%s codec=%s payload=%s",
@@ -163,9 +163,19 @@ class GStreamerWebRtcBridge(MediaSession):
             raise ValueError(f"invalid WebRTC ICE UDP port: {self.ice_udp_port}")
         ice_agent = self.webrtc.get_property("ice-agent")
         if ice_agent is None:
-            raise RuntimeError("GStreamer webrtcbin did not expose an ICE agent")
-        ice_agent.set_property("min-rtp-port", self.ice_udp_port)
-        ice_agent.set_property("max-rtp-port", self.ice_udp_port)
+            LOGGER.warning("webrtc_ice_agent_unavailable call_id=%s fixed_port=%s", self.call_id, self.ice_udp_port)
+            return
+        try:
+            ice_agent.set_property("min-rtp-port", self.ice_udp_port)
+            ice_agent.set_property("max-rtp-port", self.ice_udp_port)
+        except Exception as exc:
+            LOGGER.warning(
+                "webrtc_ice_udp_port_unsupported call_id=%s port=%s error=%s",
+                self.call_id,
+                self.ice_udp_port,
+                exc,
+            )
+            return
         LOGGER.info("webrtc_ice_udp_port_fixed call_id=%s port=%s", self.call_id, self.ice_udp_port)
 
     async def start(self) -> None:
