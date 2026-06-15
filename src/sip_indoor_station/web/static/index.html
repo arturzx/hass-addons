@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIP Indoor Station Audio</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 720px; }
+      button { margin-right: .5rem; padding: .5rem .75rem; }
+      .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+      .controls button { margin-right: 0; }
+      dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; }
+      dt { font-weight: 700; }
+      dd { margin: 0; }
+      #log { white-space: pre-wrap; background: #111; color: #eee; padding: 1rem; min-height: 12rem; }
+    </style>
+  </head>
+  <body>
+    <h1>SIP Indoor Station Audio</h1>
+    <h2>State</h2>
+    <dl>
+      <dt>API</dt><dd id="apiStatus">Disconnected</dd>
+      <dt>Registered</dt><dd id="registered">-</dd>
+      <dt>Ringing</dt><dd id="ringing">-</dd>
+      <dt>In call</dt><dd id="inCall">-</dd>
+      <dt>Call state</dt><dd id="callState">-</dd>
+      <dt>Call ID</dt><dd id="callId">-</dd>
+      <dt>Remote IP</dt><dd id="remoteIp">-</dd>
+      <dt>Codec</dt><dd id="codec">-</dd>
+      <dt>Last event</dt><dd id="lastEvent">-</dd>
+    </dl>
+
+    <h2>Controls</h2>
+    <div class="controls">
+      <button id="answer">Answer</button>
+      <button id="reject">Reject</button>
+      <button id="hangup">Hang up</button>
+      <button id="openDoor">Open door</button>
+      <button id="reboot">Reboot</button>
+    </div>
+
+    <h2>WebRTC</h2>
+    <p id="status">Disconnected</p>
+    <div class="controls">
+      <button id="connect">Connect WebRTC</button>
+      <button id="playAudio">Play Audio</button>
+      <button id="disconnect">Disconnect</button>
+    </div>
+    <p><audio id="remoteAudio" autoplay controls></audio></p>
+    <pre id="log"></pre>
+    <script src="/client.js"></script>
+  </body>
+</html>

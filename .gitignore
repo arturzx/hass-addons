@@ -1,0 +1,14 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+.idea/
+
+*.pcap
+*.pcapng
+webrtc_internals_dump*.gz
+
+.env
+.env.*
+!.env.example

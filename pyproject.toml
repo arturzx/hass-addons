@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sip-indoor-station"
+version = "0.1.0"
+description = "Simple SIP/WebRTC bridge for home door stations without PBX overhead"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "aiohttp>=3.12",
+  "PyGObject",
+]
+
+[project.scripts]
+sip-indoor-station = "sip_indoor_station.app.main:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sip_indoor_station = ["web/static/*.html", "web/static/*.js"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

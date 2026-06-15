@@ -1,0 +1,38 @@
+from pathlib import Path
+
+
+def test_browser_client_uses_single_bidirectional_audio_transceiver() -> None:
+    source = Path("src/sip_indoor_station/web/static/client.js").read_text()
+    assert "addTransceiver(audioTrack, { direction: \"sendrecv\"" in source
+    assert "addTransceiver(\"audio\", { direction: \"recvonly\" })" not in source
+    assert "direction: \"sendonly\"" not in source
+    assert "pc.addTrack" not in source
+
+
+def test_browser_client_waits_for_ice_before_sending_offer() -> None:
+    source = Path("src/sip_indoor_station/web/static/client.js").read_text()
+    assert "waitForIceGatheringComplete" in source
+    assert "await waitForIceGatheringComplete(pc);" in source
+
+
+def test_browser_client_sets_websocket_open_handler_before_media_await() -> None:
+    source = Path("src/sip_indoor_station/web/static/client.js").read_text()
+    assert source.index("ws.onopen") < source.index("navigator.mediaDevices.getUserMedia")
+    assert "maybeSendOffer" in source
+
+
+def test_browser_client_loads_webrtc_ice_config_before_peer_connection() -> None:
+    source = Path("src/sip_indoor_station/web/static/client.js").read_text()
+    assert 'fetch("/webrtc/config"' in source
+    assert "new RTCPeerConnection(webrtcConfig)" in source
+    assert source.index("await loadWebRtcConfig()") < source.index("new RTCPeerConnection(webrtcConfig)")
+
+
+def test_browser_client_keeps_remote_audio_stream_and_play_button() -> None:
+    client_source = Path("src/sip_indoor_station/web/static/client.js").read_text()
+    html_source = Path("src/sip_indoor_station/web/static/index.html").read_text()
+    assert "let remoteStream = null;" in client_source
+    assert "remoteAudio.srcObject = remoteStream;" in client_source
+    assert "remoteStream.addTrack(event.track)" in client_source
+    assert "playAudio" in client_source
+    assert 'id="playAudio"' in html_source
