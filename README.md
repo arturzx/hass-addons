@@ -1,6 +1,6 @@
 # SIP Indoor Station
 
-Minimal SIP server and WebRTC audio bridge for SIP-capable home door stations on a LAN. It is meant to be a simple direct setup for home deployments where running a full PBX such as Asterisk with complicates configuration would be unnecessary overhead.
+Minimal SIP server and WebRTC audio bridge for SIP-capable home door stations on a LAN. It is meant to be a simple direct setup for home deployments where running a full PBX such as Asterisk with complicated configuration would be unnecessary overhead.
 
 The project is intended to stay vendor-neutral at the SIP/WebRTC layer. 
 
