@@ -39,6 +39,7 @@ class Config:
     sip_realm: str = os.getenv("SIP_REALM", "sip.local")
     sip_nonce_ttl: int = int(os.getenv("SIP_NONCE_TTL", "300"))
     sip_registration_ttl: int = int(os.getenv("SIP_REGISTRATION_TTL", "3600"))
+    sip_registration_store_path: str | None = os.getenv("SIP_REGISTRATION_STORE_PATH")
     sip_users: dict[str, SipUser] = field(default_factory=dict)
     sip_reject_response_code: int = int(os.getenv("SIP_REJECT_RESPONSE_CODE", "486"))
     sip_reject_response_reason: str = os.getenv("SIP_REJECT_RESPONSE_REASON", "Busy Here")

@@ -6,7 +6,7 @@ import logging
 from sip_indoor_station.app.http_server import AppHttpServer
 from sip_indoor_station.api.state_api import StateApi
 from sip_indoor_station.app.config import load_config
-from sip_indoor_station.app.events import EventBus
+from sip_indoor_station.app.events import AppEvent, EventBus
 from sip_indoor_station.sip.server import SipServer
 
 
@@ -40,6 +40,19 @@ async def main() -> None:
         maintenance = HikvisionMaintenanceApi(isapi_client)
     sip_server = SipServer(config, event_bus=event_bus, door_opener=door_opener, maintenance=maintenance)
     state_api = StateApi(event_bus, sip_server)
+    for registration in sip_server.registrations.active():
+        await event_bus.publish(
+            AppEvent(
+                "registration_success",
+                data={
+                    "username": registration.username,
+                    "contact_uri": registration.contact_uri,
+                    "source": f"{registration.source_ip}:{registration.source_port}",
+                    "user_agent": registration.user_agent,
+                    "restored": True,
+                },
+            )
+        )
     http_server = AppHttpServer(config, event_bus, sip_server.active_media_session, state_api)
     await sip_server.start()
     await http_server.start()

@@ -11,7 +11,7 @@ This project currently implements:
 - SIP UDP listener on `0.0.0.0:5060` by default
 - SIP message parsing/building
 - Digest-authenticated `REGISTER`
-- In-memory registration store
+- Optional persistent registration store
 - Basic `OPTIONS`, `INVITE`, `ACK`, `BYE`, and `CANCEL` handling
 - SDP parsing and a minimal PCMA/PCMU SDP answer with video rejection
 - GStreamer WebRTC audio bridge for PCMU/8000 / PCMA/8000 RTP audio
@@ -35,10 +35,13 @@ export SIP_USERNAME=door
 export SIP_PASSWORD=change-me
 export SIP_NONCE_TTL=300
 export SIP_REGISTRATION_TTL=3600
+export SIP_REGISTRATION_STORE_PATH=
 export RTP_PORT_MIN=40000
 export RTP_PORT_MAX=40100
 sip-indoor-station
 ```
+
+Set `SIP_REGISTRATION_STORE_PATH` to a JSON file path to persist unexpired SIP registrations across restarts. The Home Assistant add-on sets this to `/data/sip_registrations.json`.
 
 ## Home Assistant Add-on
 

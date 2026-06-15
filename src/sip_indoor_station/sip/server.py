@@ -78,7 +78,10 @@ class SipServer:
         maintenance: StationMaintenance | None = None,
     ) -> None:
         self.config = config
-        self.registrations = registrations or RegistrationRegistry(config.sip_registration_ttl)
+        self.registrations = registrations or RegistrationRegistry(
+            config.sip_registration_ttl,
+            storage_path=config.sip_registration_store_path,
+        )
         self.calls = calls or CallRegistry()
         self.nonce_store = nonce_store or NonceStore(config.sip_nonce_ttl)
         self.event_bus = event_bus or EventBus()
