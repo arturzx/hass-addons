@@ -14,7 +14,7 @@ RUN apk add --no-cache \
     gst-plugins-bad \
     gst-plugins-ugly \
     gst-libav \
-    libnice
+    libnice-gstreamer
 
 WORKDIR /app
 COPY sip-indoor-station/ /app/sip-indoor-station/
