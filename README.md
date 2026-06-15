@@ -1,7 +1,5 @@
 # Home Assistant Add-ons
 
-Home Assistant add-on repository.
-
 <p align="center">
   <a href="https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Farturzx%2Fhass-addons">
     <img src="https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg" alt="Add SIP Indoor Station add-on repository to Home Assistant">
