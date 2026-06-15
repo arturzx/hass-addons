@@ -1,0 +1,3 @@
+[submodule "sip_indoor_station/sip-indoor-station"]
+	path = sip_indoor_station/sip-indoor-station
+	url = https://github.com/arturzx/sip-indoor-station.git

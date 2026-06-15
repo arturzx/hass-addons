@@ -1,0 +1,54 @@
+name: SIP Indoor Station
+slug: sip_indoor_station
+description: SIP/WebRTC bridge for SIP-capable door stations
+url: https://github.com/arturzx/hass-addons/tree/master/sip_indoor_station
+version: 0.1.15
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: auto
+init: false
+host_network: false
+ingress: true
+ingress_port: 8080
+ports:
+  5060/udp: 5060
+  40000/udp: 40000
+  8556/udp: 8556
+ports_description:
+  5060/udp: SIP UDP listener
+  40000/udp: RTP media port advertised to the door station
+  8556/udp: WebRTC ICE UDP media port
+options:
+  local_address: ""
+  sip_username: door
+  sip_password: door
+  sip_realm: sip.local
+  webrtc_ice_candidates: ""
+  webrtc_stun_servers: ""
+  webrtc_turn_servers: ""
+  webrtc_turn_username: ""
+  webrtc_turn_password: ""
+  webrtc_ice_transport_policy: all
+  isapi_enabled: false
+  isapi_host: ""
+  isapi_username: ""
+  isapi_password: ""
+  isapi_door_id: 1
+schema:
+  local_address: str
+  sip_username: str
+  sip_password: password
+  sip_realm: str
+  webrtc_ice_candidates: str
+  webrtc_stun_servers: str
+  webrtc_turn_servers: str
+  webrtc_turn_username: str
+  webrtc_turn_password: password
+  webrtc_ice_transport_policy: list(all|relay)
+  isapi_enabled: bool
+  isapi_host: str
+  isapi_username: str
+  isapi_password: password
+  isapi_door_id: int
