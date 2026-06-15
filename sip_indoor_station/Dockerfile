@@ -7,6 +7,7 @@ RUN apk add --no-cache \
     bash \
     jq \
     py3-pip \
+    py3-aiohttp \
     py3-gobject3 \
     gstreamer \
     gst-plugins-base \
@@ -19,8 +20,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 COPY sip-indoor-station/ /app/sip-indoor-station/
 
-RUN pip3 install --break-system-packages "aiohttp>=3.12" \
-    && pip3 install --break-system-packages --no-deps /app/sip-indoor-station
+RUN pip3 install --break-system-packages --no-deps /app/sip-indoor-station
 
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
