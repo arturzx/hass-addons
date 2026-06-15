@@ -6,7 +6,7 @@ import re
 import threading
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from sip_indoor_station.media.base import MediaSession
 from sip_indoor_station.media.gstreamer_check import check_required_elements
@@ -42,6 +42,8 @@ SIP_AUDIO_CODECS = {
 
 
 class GStreamerWebRtcBridge(MediaSession):
+    _webrtc_type_probe: ClassVar[Any | None] = None
+
     def __init__(
         self,
         call_id: str,
@@ -82,9 +84,12 @@ class GStreamerWebRtcBridge(MediaSession):
         self.pipeline: Any | None = None
         self.webrtc: Any | None = None
         self._gst: Any | None = None
+        self._gobject: Any | None = None
         self._webrtc_api: Any | None = None
         self._sdp_api: Any | None = None
         self._glib: Any | None = None
+        self._ice_agent: Any | None = None
+        self._webrtc_sink_pad: Any | None = None
         self._main_loop: Any | None = None
         self._main_loop_thread: threading.Thread | None = None
         self._started = False
@@ -107,10 +112,7 @@ class GStreamerWebRtcBridge(MediaSession):
         check_required_elements().assert_available()
         self._load_gstreamer()
         self._start_glib_loop()
-        self.pipeline = self._gst.parse_launch(self._pipeline_description())
-        self.webrtc = self.pipeline.get_by_name("webrtc")
-        if self.webrtc is None:
-            raise RuntimeError("GStreamer pipeline did not create webrtcbin named 'webrtc'")
+        self.pipeline, self.webrtc = self._build_pipeline()
         if self.stun_servers:
             self.webrtc.set_property("stun-server", self.stun_servers[0])
             if len(self.stun_servers) > 1:
@@ -130,6 +132,7 @@ class GStreamerWebRtcBridge(MediaSession):
                 self.call_id,
                 self.ice_transport_policy,
             )
+        self._log_ice_agent_configuration()
         self.webrtc.connect("on-ice-candidate", self._on_ice_candidate)
         self.webrtc.connect("pad-added", self._on_webrtc_pad_added)
         self.webrtc.connect("notify::ice-gathering-state", self._on_ice_gathering_state)
@@ -141,10 +144,9 @@ class GStreamerWebRtcBridge(MediaSession):
         result = self.pipeline.set_state(self._gst.State.READY)
         if result == self._gst.StateChangeReturn.FAILURE:
             raise RuntimeError("failed to set GStreamer WebRTC bridge pipeline to READY")
-        self.configure_ice_udp_port()
         self._prepared = True
         LOGGER.info(
-            "media_prepared call_id=%s advertised_rtp=%s:%s bind_rtp=%s:%s remote_rtp=%s:%s codec=%s payload=%s",
+            "media_prepared call_id=%s advertised_rtp=%s:%s bind_rtp=%s:%s remote_rtp=%s:%s codec=%s payload=%s fixed_ice_port=%s",
             self.call_id,
             self.local_media_ip,
             self.local_rtp_port,
@@ -154,29 +156,8 @@ class GStreamerWebRtcBridge(MediaSession):
             self.remote_rtp_port,
             self.selected_codec,
             self.selected_payload_type,
+            self.ice_udp_port,
         )
-
-    def configure_ice_udp_port(self) -> None:
-        if self.ice_udp_port is None:
-            return
-        if self.ice_udp_port < 1 or self.ice_udp_port > 65535:
-            raise ValueError(f"invalid WebRTC ICE UDP port: {self.ice_udp_port}")
-        ice_agent = self.webrtc.get_property("ice-agent")
-        if ice_agent is None:
-            LOGGER.warning("webrtc_ice_agent_unavailable call_id=%s fixed_port=%s", self.call_id, self.ice_udp_port)
-            return
-        try:
-            ice_agent.set_property("min-rtp-port", self.ice_udp_port)
-            ice_agent.set_property("max-rtp-port", self.ice_udp_port)
-        except Exception as exc:
-            LOGGER.warning(
-                "webrtc_ice_udp_port_unsupported call_id=%s port=%s error=%s",
-                self.call_id,
-                self.ice_udp_port,
-                exc,
-            )
-            return
-        LOGGER.info("webrtc_ice_udp_port_fixed call_id=%s port=%s", self.call_id, self.ice_udp_port)
 
     async def start(self) -> None:
         await self.prepare()
@@ -191,6 +172,9 @@ class GStreamerWebRtcBridge(MediaSession):
     async def stop(self) -> None:
         if self.pipeline is not None:
             self.pipeline.set_state(self._gst.State.NULL)
+        if self.webrtc is not None and self._webrtc_sink_pad is not None:
+            self.webrtc.release_request_pad(self._webrtc_sink_pad)
+            self._webrtc_sink_pad = None
         if self._main_loop is not None:
             self._main_loop.quit()
         if self._main_loop_thread is not None and self._main_loop_thread.is_alive():
@@ -198,6 +182,9 @@ class GStreamerWebRtcBridge(MediaSession):
         self._started = False
         self._prepared = False
         self._peer_active = False
+        self.pipeline = None
+        self.webrtc = None
+        self._ice_agent = None
         LOGGER.info("media_stopped call_id=%s", self.call_id)
 
     async def handle_webrtc_offer(self, sdp: str, type_: str = "offer") -> dict[str, Any]:
@@ -231,10 +218,12 @@ class GStreamerWebRtcBridge(MediaSession):
         gi.require_version("Gst", "1.0")
         gi.require_version("GstWebRTC", "1.0")
         gi.require_version("GstSdp", "1.0")
-        from gi.repository import GLib, Gst, GstSdp, GstWebRTC
+        from gi.repository import GLib, GObject, Gst, GstSdp, GstWebRTC
 
         Gst.init(None)
+        Gst.Plugin.load_by_name("webrtc")
         self._glib = GLib
+        self._gobject = GObject
         self._gst = Gst
         self._sdp_api = GstSdp
         self._webrtc_api = GstWebRTC
@@ -250,10 +239,85 @@ class GStreamerWebRtcBridge(MediaSession):
         )
         self._main_loop_thread.start()
 
+    def _build_pipeline(self) -> tuple[Any, Any]:
+        pipeline = self._gst.Pipeline.new(None)
+        browser_audio = self._gst.parse_bin_from_description(self._pipeline_description(), True)
+        webrtc = self._create_webrtcbin()
+
+        pipeline.add(browser_audio)
+        pipeline.add(webrtc)
+
+        srcpad = browser_audio.get_static_pad("src")
+        if srcpad is None:
+            raise RuntimeError("GStreamer browser audio bin did not expose a source pad")
+        sinkpad = webrtc.request_pad_simple("sink_%u")
+        if sinkpad is None:
+            raise RuntimeError("GStreamer webrtcbin did not provide a sink pad")
+        if srcpad.link(sinkpad) != self._gst.PadLinkReturn.OK:
+            webrtc.release_request_pad(sinkpad)
+            raise RuntimeError("failed to link browser audio source to webrtcbin")
+        self._webrtc_sink_pad = sinkpad
+        return pipeline, webrtc
+
+    def _create_webrtcbin(self) -> Any:
+        self._validate_ice_udp_port()
+        if self.ice_udp_port is None:
+            webrtc = self._gst.ElementFactory.make("webrtcbin", "webrtc")
+            if webrtc is None:
+                raise RuntimeError("GStreamer could not create webrtcbin")
+        else:
+            ice_agent = self._create_fixed_port_ice_agent()
+            webrtc = self._gst.ElementFactory.make_with_properties(
+                "webrtcbin",
+                ["name", "ice-agent"],
+                ["webrtc", ice_agent],
+            )
+            if webrtc is None:
+                raise RuntimeError("GStreamer could not create webrtcbin with configured ICE agent")
+            self._ice_agent = ice_agent
+        webrtc.set_property("bundle-policy", self._webrtc_api.WebRTCBundlePolicy.MAX_BUNDLE)
+        return webrtc
+
+    def _create_fixed_port_ice_agent(self) -> Any:
+        self._ensure_webrtc_nice_type_registered()
+        ice_agent_type = self._gobject.type_from_name("GstWebRTCNice")
+        ice_agent = self._gobject.new(ice_agent_type)
+        ice_agent.set_property("min-rtp-port", self.ice_udp_port)
+        ice_agent.set_property("max-rtp-port", self.ice_udp_port)
+        ice_agent.set_property("ice-tcp", False)
+        return ice_agent
+
+    def _ensure_webrtc_nice_type_registered(self) -> None:
+        try:
+            self._gobject.type_from_name("GstWebRTCNice")
+            return
+        except RuntimeError:
+            pass
+        if GStreamerWebRtcBridge._webrtc_type_probe is None:
+            probe = self._gst.ElementFactory.make("webrtcbin", None)
+            if probe is None:
+                raise RuntimeError("GStreamer could not create webrtcbin")
+            GStreamerWebRtcBridge._webrtc_type_probe = probe
+
+    def _validate_ice_udp_port(self) -> None:
+        if self.ice_udp_port is not None and (self.ice_udp_port < 1 or self.ice_udp_port > 65535):
+            raise ValueError(f"invalid WebRTC ICE UDP port: {self.ice_udp_port}")
+
+    def _log_ice_agent_configuration(self) -> None:
+        ice_agent = self.webrtc.get_property("ice-agent")
+        LOGGER.info(
+            "webrtc_ice_agent_configured call_id=%s fixed_ice_port=%s min_rtp_port=%s max_rtp_port=%s ice_udp=%s ice_tcp=%s",
+            self.call_id,
+            self.ice_udp_port,
+            ice_agent.get_property("min-rtp-port"),
+            ice_agent.get_property("max-rtp-port"),
+            ice_agent.get_property("ice-udp"),
+            ice_agent.get_property("ice-tcp"),
+        )
+
     def _pipeline_description(self) -> str:
         codec = self.sip_audio_elements
         return (
-            f"webrtcbin name=webrtc bundle-policy=max-bundle "
             f"udpsrc name=station_rtp_src port={self.local_rtp_port} "
             f'caps="application/x-rtp,media=audio,clock-rate=8000,encoding-name={codec.encoding_name},payload={self.selected_payload_type}" '
             f"! queue ! rtpjitterbuffer latency={self.jitter_buffer_ms} "
@@ -261,7 +325,7 @@ class GStreamerWebRtcBridge(MediaSession):
             "! audio/x-raw,rate=48000,channels=1 "
             f"! queue ! opusenc ! rtpopuspay name=browser_audio_pay pt={self.webrtc_opus_payload_type} "
             f'! capsfilter name=browser_audio_caps caps="application/x-rtp,media=audio,clock-rate=48000,encoding-name=OPUS,payload={self.webrtc_opus_payload_type}" '
-            "! queue ! webrtc."
+            "! queue"
         )
 
     async def _run_gst_offer_answer(self, sdp: str) -> str:

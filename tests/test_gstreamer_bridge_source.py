@@ -172,26 +172,7 @@ def test_gstreamer_bridge_parses_configured_ice_candidate_host_and_optional_port
     assert GStreamerWebRtcBridge.parse_configured_ice_candidate("10.0.0.20:18556") == ("10.0.0.20", 18556)
 
 
-class FakeIceAgent:
-    def __init__(self) -> None:
-        self.properties: dict[str, int] = {}
-
-    def set_property(self, name: str, value: int) -> None:
-        self.properties[name] = value
-
-
-class FakeWebRtc:
-    def __init__(self, ice_agent: FakeIceAgent) -> None:
-        self.ice_agent = ice_agent
-
-    def get_property(self, name: str) -> FakeIceAgent | None:
-        if name == "ice-agent":
-            return self.ice_agent
-        return None
-
-
 def test_gstreamer_bridge_fixes_ice_udp_port_when_configured() -> None:
-    ice_agent = FakeIceAgent()
     bridge = GStreamerWebRtcBridge(
         call_id="call-1",
         local_media_ip="172.17.0.2",
@@ -200,12 +181,28 @@ def test_gstreamer_bridge_fixes_ice_udp_port_when_configured() -> None:
         remote_rtp_port=9654,
         ice_udp_port=8555,
     )
-    bridge.webrtc = FakeWebRtc(ice_agent)
 
-    bridge.configure_ice_udp_port()
+    source = Path("src/sip_indoor_station/media/gstreamer_webrtc_bridge.py").read_text()
+    pipeline = bridge._pipeline_description()
 
-    assert ice_agent.properties["min-rtp-port"] == 8555
-    assert ice_agent.properties["max-rtp-port"] == 8555
+    assert "webrtcbin" not in pipeline
+    assert 'ice_agent.set_property("min-rtp-port", self.ice_udp_port)' in source
+    assert 'ice_agent.set_property("max-rtp-port", self.ice_udp_port)' in source
+    assert 'ice_agent.set_property("ice-tcp", False)' in source
+    assert 'self._gst.ElementFactory.make_with_properties(' in source
+
+
+def test_gstreamer_bridge_configures_ice_agent_before_webrtcbin_construction() -> None:
+    source = Path("src/sip_indoor_station/media/gstreamer_webrtc_bridge.py").read_text()
+    create_agent_index = source.index("ice_agent = self._create_fixed_port_ice_agent()")
+    construct_index = source.index('self._gst.ElementFactory.make_with_properties(')
+
+    assert create_agent_index < construct_index
+    assert 'ice_agent.set_property("min-rtp-port", self.ice_udp_port)' in source
+    assert 'ice_agent.set_property("max-rtp-port", self.ice_udp_port)' in source
+    assert 'ice_agent.set_property("ice-tcp", False)' in source
+    assert "ice-agent::min-rtp-port" not in source
+    assert "ice-agent::max-rtp-port" not in source
 
 
 def test_gstreamer_bridge_rejects_invalid_fixed_ice_udp_port() -> None:
@@ -219,4 +216,4 @@ def test_gstreamer_bridge_rejects_invalid_fixed_ice_udp_port() -> None:
     )
 
     with pytest.raises(ValueError, match="invalid WebRTC ICE UDP port"):
-        bridge.configure_ice_udp_port()
+        bridge._validate_ice_udp_port()
