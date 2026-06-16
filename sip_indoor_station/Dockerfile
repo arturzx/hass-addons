@@ -9,7 +9,6 @@ RUN apk add --no-cache \
     py3-pip \
     py3-aiohttp \
     py3-gobject3 \
-    py3-sqlite3 \
     gstreamer \
     gst-plugins-base \
     gst-plugins-good \
