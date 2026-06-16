@@ -7,6 +7,7 @@ import secrets
 import time
 from collections.abc import Callable
 from typing import Protocol
+from dataclasses import dataclass
 
 from sip_indoor_station.app.config import Config, SipUser
 from sip_indoor_station.app.events import AppEvent, EventBus
@@ -31,6 +32,17 @@ from sip_indoor_station.sip.messages import SipRequest, SipResponse, build_sip_m
 from sip_indoor_station.sip.sdp import build_sdp_answer, parse_sdp, select_audio_codec
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    content: bytes
+    content_type: str = "image/jpeg"
+
+
+class SnapshotProvider(Protocol):
+    async def capture_snapshot(self) -> Snapshot | None:
+        raise NotImplementedError
 
 
 class DoorOpener(Protocol):

@@ -10,7 +10,8 @@ from sip_indoor_station.vendor.hikvision.client import HikvisionIsapiClient
 from sip_indoor_station.vendor.hikvision.door import HikvisionDoorApi
 from sip_indoor_station.vendor.hikvision.errors import IsapiAuthError, IsapiConnectionError, IsapiResponseError
 from sip_indoor_station.vendor.hikvision.maintenance import HikvisionMaintenanceApi
-from sip_indoor_station.vendor.hikvision.models import IsapiClientConfig, IsapiResponse
+from sip_indoor_station.vendor.hikvision.models import IsapiBinaryResponse, IsapiClientConfig, IsapiResponse
+from sip_indoor_station.vendor.hikvision.snapshot import HikvisionSnapshotProvider
 from sip_indoor_station.sip.server import SipServer
 
 
@@ -35,6 +36,15 @@ class FakeDoorClient:
         return self.responses.pop(0)
 
 
+class FakeSnapshotClient:
+    def __init__(self) -> None:
+        self.requests: list[str] = []
+
+    async def get_bytes(self, path: str) -> IsapiBinaryResponse:
+        self.requests.append(path)
+        return IsapiBinaryResponse(200, b"snapshot", "image/jpeg")
+
+
 def test_isapi_client_builds_http_base_url() -> None:
     client = HikvisionIsapiClient(IsapiClientConfig(host="192.168.8.163", port=80))
     assert client.base_url == "http://192.168.8.163:80"
@@ -56,6 +66,21 @@ def test_open_door_sends_expected_put_and_xml_body() -> None:
         assert path == "/ISAPI/AccessControl/RemoteControl/door/1"
         assert "<RemoteControlDoor>" in str(body)
         assert "<cmd>open</cmd>" in str(body)
+
+    asyncio.run(run())
+
+
+def test_snapshot_provider_reads_hikvision_picture_endpoint() -> None:
+    async def run() -> None:
+        client = FakeSnapshotClient()
+        provider = HikvisionSnapshotProvider(client)  # type: ignore[arg-type]
+
+        snapshot = await provider.capture_snapshot()
+
+        assert snapshot is not None
+        assert snapshot.content == b"snapshot"
+        assert snapshot.content_type == "image/jpeg"
+        assert client.requests == ["/ISAPI/Streaming/channels/101/picture"]
 
     asyncio.run(run())
 

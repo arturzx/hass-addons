@@ -25,6 +25,13 @@ def env_int_optional(name: str) -> int | None:
     return int(value)
 
 
+def env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return int(value)
+
+
 @dataclass(frozen=True)
 class SipUser:
     username: str
@@ -56,6 +63,10 @@ class Config:
     webrtc_turn_username: str | None = os.getenv("WEBRTC_TURN_USERNAME")
     webrtc_turn_password: str | None = os.getenv("WEBRTC_TURN_PASSWORD")
     webrtc_ice_transport_policy: str = os.getenv("WEBRTC_ICE_TRANSPORT_POLICY", "all")
+    call_history_enabled: bool = env_bool("CALL_HISTORY_ENABLED", False)
+    call_history_days: int = env_int("CALL_HISTORY_DAYS", 30)
+    call_history_db_path: str = os.getenv("CALL_HISTORY_DB_PATH", "/data/call_history.sqlite")
+    door_station_vendor: str = os.getenv("DOOR_STATION_VENDOR", "").strip().lower()
     isapi_enabled: bool = env_bool("ISAPI_ENABLED", False)
     isapi_host: str | None = os.getenv("ISAPI_HOST")
     isapi_port: int = int(os.getenv("ISAPI_PORT", "80"))

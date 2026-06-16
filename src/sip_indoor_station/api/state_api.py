@@ -15,14 +15,21 @@ from sip_indoor_station.app.state import (
     public_event_name,
 )
 from sip_indoor_station.calls.controller import CallController
+from sip_indoor_station.calls.history import CallHistoryStore
 
 LOGGER = logging.getLogger(__name__)
 
 
 class StateApi:
-    def __init__(self, event_bus: EventBus, call_controller: CallController) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus,
+        call_controller: CallController,
+        call_history: CallHistoryStore | None = None,
+    ) -> None:
         self.event_bus = event_bus
         self.call_controller = call_controller
+        self.call_history = call_history
         self.state = AppState()
         self._websockets: set[web.WebSocketResponse] = set()
         self.event_bus.subscribe(self.handle_event)
@@ -35,11 +42,15 @@ class StateApi:
         app.router.add_post("/api/open_door", self.open_door)
         app.router.add_post("/api/reboot", self.reboot)
         app.router.add_get("/api/ws", self.websocket)
+        if self.call_history is not None:
+            self.call_history.register_routes(app)
 
     async def close(self) -> None:
         for ws in tuple(self._websockets):
             await ws.close()
         self._websockets.clear()
+        if self.call_history is not None:
+            self.call_history.close()
 
     async def get_state(self, _request: web.Request) -> web.Response:
         return web.json_response(self.state.to_dict())

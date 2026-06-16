@@ -7,6 +7,7 @@ from sip_indoor_station.app.http_server import AppHttpServer
 from sip_indoor_station.api.state_api import StateApi
 from sip_indoor_station.app.config import load_config
 from sip_indoor_station.app.events import AppEvent, EventBus
+from sip_indoor_station.calls.history import CallHistoryStore
 from sip_indoor_station.sip.server import SipServer
 
 
@@ -17,10 +18,13 @@ async def main() -> None:
     )
     config = load_config()
     event_bus = EventBus()
+    snapshot_provider = None
+    call_history = None
     door_opener = None
     maintenance = None
-    if config.isapi_enabled and config.isapi_host:
+    if config.door_station_vendor == "hikvision" and config.isapi_enabled and config.isapi_host:
         from sip_indoor_station.vendor.hikvision.client import HikvisionIsapiClient
+        from sip_indoor_station.vendor.hikvision.snapshot import HikvisionSnapshotProvider
         from sip_indoor_station.vendor.hikvision.door import HikvisionDoorApi
         from sip_indoor_station.vendor.hikvision.maintenance import HikvisionMaintenanceApi
         from sip_indoor_station.vendor.hikvision.models import IsapiClientConfig
@@ -36,10 +40,17 @@ async def main() -> None:
                 verify_ssl=config.isapi_verify_ssl,
             )
         )
+        snapshot_provider = HikvisionSnapshotProvider(isapi_client)
         door_opener = HikvisionDoorApi(isapi_client, door_id=config.isapi_door_id)
         maintenance = HikvisionMaintenanceApi(isapi_client)
     sip_server = SipServer(config, event_bus=event_bus, door_opener=door_opener, maintenance=maintenance)
-    state_api = StateApi(event_bus, sip_server)
+    if config.call_history_enabled:
+        call_history = (
+            CallHistoryStore(config.call_history_db_path, config.call_history_days, event_bus, snapshot_provider)
+            if config.call_history_enabled
+            else None
+        )
+    state_api = StateApi(event_bus, sip_server, call_history)
     for registration in sip_server.registrations.active():
         await event_bus.publish(
             AppEvent(

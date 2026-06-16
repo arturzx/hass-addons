@@ -27,6 +27,17 @@ class IsapiResponse:
 
 
 @dataclass(frozen=True)
+class IsapiBinaryResponse:
+    status: int
+    body: bytes
+    content_type: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return 200 <= self.status < 300
+
+
+@dataclass(frozen=True)
 class DoorCommandResult:
     success: bool
     status: int | None = None

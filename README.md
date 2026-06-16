@@ -1,6 +1,6 @@
 # SIP Indoor Station
 
-Minimal SIP server and WebRTC audio bridge for SIP-capable home door stations on a LAN. It is meant to be a simple direct setup for home deployments where running a full PBX such as Asterisk with complicated configuration would be unnecessary overhead.
+Minimal SIP server and WebRTC audio bridge with calls history for SIP-capable home door stations on a LAN. It is meant to be a simple direct setup for home deployments where running a full PBX such as Asterisk with complicated configuration would be unnecessary overhead.
 
 The project is intended to stay vendor-neutral at the SIP/WebRTC layer. 
 
@@ -39,6 +39,10 @@ export SIP_REGISTRATION_TTL=3600
 export SIP_REGISTRATION_STORE_PATH=
 export RTP_PORT_MIN=40000
 export RTP_PORT_MAX=40100
+export CALL_HISTORY_ENABLED=false
+export CALL_HISTORY_DAYS=30
+export CALL_HISTORY_DB_PATH=/data/call_history.sqlite
+export DOOR_STATION_VENDOR=
 sip-indoor-station
 ```
 
@@ -91,6 +95,75 @@ Command endpoints:
 - `POST /api/hangup`
 - `POST /api/open_door`
 - `POST /api/reboot`
+
+### Optional Call History
+
+Call history is disabled by default. Enable it to store recent call records in SQLite:
+
+```bash
+export CALL_HISTORY_ENABLED=true
+export CALL_HISTORY_DAYS=30
+export CALL_HISTORY_DB_PATH=/data/call_history.sqlite
+```
+
+The store creates a generated UUID for every incoming call. The SIP `Call-ID` is kept only as metadata, so API operations use the generated history UUID.
+
+Stored statuses:
+
+- `ringing`: incoming call is currently ringing.
+- `answered`: call was answered. This status is kept after normal call end.
+- `missed`: caller cancelled before answer.
+- `rejected`: call was rejected locally.
+- `failed`: call failed.
+- `ended`: call ended without being marked answered.
+
+Retention cleanup removes entries older than `CALL_HISTORY_DAYS`.
+
+Snapshots are stored in the same SQLite database as BLOB data when a snapshot provider is available. For HikVision snapshots, enable ISAPI and set:
+
+```bash
+export DOOR_STATION_VENDOR=hikvision
+export ISAPI_ENABLED=true
+export ISAPI_HOST=192.168.0.234
+export ISAPI_USERNAME=admin
+export ISAPI_PASSWORD=change-me
+```
+
+The HikVision snapshot provider reads:
+
+```text
+GET /ISAPI/Streaming/channels/101/picture
+```
+
+Call history endpoints:
+
+- `GET /api/call_history`
+- `DELETE /api/call_history`
+- `GET /api/call_history/{history_id}`
+- `DELETE /api/call_history/{history_id}`
+- `GET /api/call_history/{history_id}/snapshot`
+
+Example list response:
+
+```json
+{
+  "calls": [
+    {
+      "id": "33f8f9e5-1ef3-48bb-89cc-2fb592f83b9a",
+      "sip_call_id": "door-call-1",
+      "status": "missed",
+      "started_at": "2026-06-16T12:00:00Z",
+      "answered_at": null,
+      "ended_at": "2026-06-16T12:00:10Z",
+      "remote_ip": "192.168.0.50",
+      "has_snapshot": true,
+      "snapshot_content_type": "image/jpeg",
+      "snapshot_captured_at": "2026-06-16T12:00:01Z",
+      "snapshot_url": "/api/call_history/33f8f9e5-1ef3-48bb-89cc-2fb592f83b9a/snapshot"
+    }
+  ]
+}
+```
 
 State updates:
 

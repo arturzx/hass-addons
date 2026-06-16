@@ -8,7 +8,7 @@ from typing import Any
 import aiohttp
 
 from sip_indoor_station.vendor.hikvision.errors import IsapiAuthError, IsapiConnectionError, IsapiResponseError
-from sip_indoor_station.vendor.hikvision.models import IsapiClientConfig, IsapiResponse
+from sip_indoor_station.vendor.hikvision.models import IsapiBinaryResponse, IsapiClientConfig, IsapiResponse
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +28,28 @@ class HikvisionIsapiClient:
 
     async def get(self, path: str, *, expect_json: bool = False) -> IsapiResponse:
         return await self.request("GET", path, expect_json=expect_json)
+
+    async def get_bytes(self, path: str) -> IsapiBinaryResponse:
+        if not self.configured:
+            raise IsapiConnectionError("ISAPI host, username, and password must be configured")
+        url = self.url(path)
+        LOGGER.debug("isapi_request method=GET url=%s", url)
+        timeout = aiohttp.ClientTimeout(total=self.config.timeout_seconds)
+        connector = aiohttp.TCPConnector(ssl=self.config.verify_ssl)
+        middlewares = (aiohttp.DigestAuthMiddleware(self.config.username or "", self.config.password or ""),)
+
+        try:
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector, middlewares=middlewares) as session:
+                async with session.get(url) as response:
+                    body = await response.read()
+                    self.raise_for_status(response.status, body[:200].decode("utf-8", errors="replace"), path)
+                    return IsapiBinaryResponse(response.status, body, response.headers.get("Content-Type"))
+        except (IsapiAuthError, IsapiResponseError):
+            raise
+        except (TimeoutError, asyncio.TimeoutError) as exc:
+            raise IsapiConnectionError(f"ISAPI request timed out: {path}") from exc
+        except aiohttp.ClientError as exc:
+            raise IsapiConnectionError(f"ISAPI connection failed for {path}: {exc}") from exc
 
     async def put(
         self,
