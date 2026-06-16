@@ -12,14 +12,18 @@ Simple SIP server for SIP capable door station acts as bridge to Home Assistant 
   </a>
 </p>
 
-This add-on contains two parts:
+This add-on contains three parts:
 - minimal SIP server with RTP audio support for door station
 - WebRTC transceiver with HTTP API for communication with client (integration and custom door station card). 
+- optional calls history
 
 Minimal configuration:
 
 - `local_address`: Home Assistant host LAN address advertised in SIP/SDP and used as the first WebRTC host ICE candidate, for example `192.168.0.123`
 - `webrtc_ice_candidates`: comma-separated host or host:port values to prepend as WebRTC host ICE candidates
+- `call_history_enabled`: store recent calls in add-on SQLite storage. Enabled by default.
+- `call_history_days`: number of days to keep call history. Defaults to `30`.
+- `door_station_vendor`: optional vendor selector. Use `hikvision` to enable HikVision snapshot support when ISAPI is configured.
 
 The add-on always uses internal WebRTC ICE UDP port `8556`; use `host:port` in `webrtc_ice_candidates` when advertising a different public forwarded port.
 
@@ -54,6 +58,49 @@ webrtc_ice_transport_policy: relay
 ```
 
 ISAPI (HikVision) is optional and disabled by default. Enable it only if local ISAPI access is enabled on the device. Currently support door opening and reboot functions.
+
+## Call History
+
+The add-on can store call history SQLite database.
+
+Stored call states include:
+
+- `ringing`
+- `answered`
+- `missed`
+- `rejected`
+- `failed`
+- `ended`
+
+History retention is controlled by:
+
+```text
+call_history_days: 30
+```
+
+The integration exposes this history to Home Assistant with summary entities such as last call, last missed call, and missed call count. The custom card includes a separate history card for browsing calls, viewing snapshots, and deleting entries.
+
+### Snapshots
+
+Snapshots are stored in the same database when a snapshot provider is available.
+
+For HikVision snapshots, configure:
+
+```text
+door_station_vendor: hikvision
+isapi_enabled: true
+isapi_host: 192.168.0.234
+isapi_username: admin
+isapi_password: change-me
+```
+
+The add-on reads the HikVision snapshot endpoint:
+
+```text
+/ISAPI/Streaming/channels/101/picture
+```
+
+ISAPI credentials are also used for door opening and reboot actions.
 
 ## Complete Home Assistant Intercom
 

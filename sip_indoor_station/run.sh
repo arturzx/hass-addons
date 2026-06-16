@@ -34,4 +34,9 @@ export ISAPI_USERNAME="$(opt isapi_username)"
 export ISAPI_PASSWORD="$(opt isapi_password)"
 export ISAPI_DOOR_ID="$(opt isapi_door_id)"
 
+export DOOR_STATION_VENDOR="$(opt door_station_vendor)"
+export CALL_HISTORY_ENABLED="$(opt call_history_enabled)"
+export CALL_HISTORY_DAYS="$(opt call_history_days)"
+export CALL_HISTORY_DB_PATH=/data/call_history.sqlite
+
 exec sip-indoor-station
