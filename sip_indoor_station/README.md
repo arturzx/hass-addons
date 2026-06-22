@@ -23,7 +23,7 @@ Minimal configuration:
 - `webrtc_ice_candidates`: comma-separated host or host:port values to prepend as WebRTC host ICE candidates
 - `call_history_enabled`: store recent calls in add-on SQLite storage. Enabled by default.
 - `call_history_days`: number of days to keep call history. Defaults to `30`.
-- `door_station_vendor`: optional vendor selector. Use `hikvision` to enable HikVision snapshot support when ISAPI is configured.
+- `door_station_vendor`: required when API is enabled. Use `hikvision` (snapshots + maintenance + open door) or `dahua` (open door only).
 
 The add-on always uses internal WebRTC ICE UDP port `8556`; use `host:port` in `webrtc_ice_candidates` when advertising a different public forwarded port.
 
@@ -57,7 +57,7 @@ For remote access, configure TURN and set:
 webrtc_ice_transport_policy: relay
 ```
 
-ISAPI (HikVision) is optional and disabled by default. Enable it only if local ISAPI access is enabled on the device. Currently support door opening and reboot functions.
+API support is optional and disabled by default. Enable it only if local API access is enabled on the device. Door opening is supported for both HikVision and Dahua. Reboot is supported only for HikVision.
 
 ## Call History
 
@@ -84,23 +84,30 @@ The integration exposes this history to Home Assistant with summary entities suc
 
 Snapshots are stored in the same database when a snapshot provider is available.
 
-For HikVision snapshots, configure:
+For HikVision snapshots and API actions, configure:
 
 ```text
 door_station_vendor: hikvision
-isapi_enabled: true
-isapi_host: 192.168.0.234
-isapi_username: admin
-isapi_password: change-me
+api_enabled: true
+api_host: 192.168.0.234
+api_username: admin
+api_password: change-me
+relays_count: 1
 ```
 
-The add-on reads the HikVision snapshot endpoint:
+For HikVision snapshots, use:
 
 ```text
 /ISAPI/Streaming/channels/101/picture
 ```
 
-ISAPI credentials are also used for door opening and reboot actions.
+For Dahua snapshots, use:
+
+```text
+/cgi-bin/snapshot.cgi?channel=1
+```
+
+API credentials are also used for door opening and reboot actions.
 
 ## Complete Home Assistant Intercom
 
