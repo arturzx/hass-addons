@@ -2,7 +2,7 @@ name: SIP Indoor Station
 slug: sip_indoor_station
 description: SIP/WebRTC bridge for SIP-capable door stations
 url: https://github.com/arturzx/hass-addons/tree/master/sip_indoor_station
-version: 0.1.21
+version: 0.1.22
 arch:
   - amd64
   - aarch64
