@@ -23,7 +23,7 @@ Minimal configuration:
 - `webrtc_ice_candidates`: comma-separated host or host:port values to prepend as WebRTC host ICE candidates
 - `call_history_enabled`: store recent calls in add-on SQLite storage. Enabled by default.
 - `call_history_days`: number of days to keep call history. Defaults to `30`.
-- `door_station_vendor`: required when API is enabled. Use `hikvision` (snapshots + maintenance + open door) or `dahua` (open door only).
+- `door_station_vendor`: required when API is enabled. Use `hikvision` (snapshots + maintenance + open door) or `dahua` (snapshots + open door).
 
 The add-on always uses internal WebRTC ICE UDP port `8556`; use `host:port` in `webrtc_ice_candidates` when advertising a different public forwarded port.
 
@@ -57,7 +57,7 @@ For remote access, configure TURN and set:
 webrtc_ice_transport_policy: relay
 ```
 
-API support is optional and disabled by default. Enable it only if local API access is enabled on the device. Door opening is supported for both HikVision and Dahua. Reboot is supported only for HikVision.
+API support is optional and disabled by default. Enable it only if local API access is enabled on the device. Door opening and snapshots are supported for both HikVision and Dahua. Reboot is supported only for HikVision.
 
 ## Call History
 
@@ -107,7 +107,7 @@ For Dahua snapshots, use:
 /cgi-bin/snapshot.cgi?channel=1
 ```
 
-API credentials are also used for door opening and reboot actions.
+API credentials are also used for snapshots, door opening, and reboot actions.
 
 ## Complete Home Assistant Intercom
 
